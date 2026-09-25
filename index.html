@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+  <title>Les Macarons</title>
+  <meta name="theme-color" content="#0055A4">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Macarons">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <header class="top">
+      <h1>Les Macarons</h1>
+      <p class="tagline">Vente de p&acirc;tisseries &middot; <span id="price-label">$2</span> each</p>
+    </header>
+    <div class="tricolore" aria-hidden="true"><i></i><i></i><i></i></div>
+
+    <div id="storage-warning" class="warning" hidden>
+      Can&rsquo;t save to this device &mdash; sales will be lost if you close the app.
+    </div>
+
+    <main>
+      <section id="view-sell" class="view" aria-label="Sell"></section>
+      <section id="view-totals" class="view" aria-label="Totals" hidden></section>
+      <section id="view-history" class="view" aria-label="History" hidden></section>
+    </main>
+
+    <nav class="tabs" aria-label="Screens">
+      <button class="tab active" data-tab="sell" aria-current="page"><span class="ico">&#127850;</span>Sell</button>
+      <button class="tab" data-tab="totals"><span class="ico">&#129534;</span>Totals</button>
+      <button class="tab" data-tab="history"><span class="ico">&#128338;</span>History</button>
+    </nav>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <div id="confetti" aria-hidden="true"></div>
+  <div id="sheet" class="sheet" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
