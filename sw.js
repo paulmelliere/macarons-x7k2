@@ -1,6 +1,7 @@
-// Stale-while-revalidate: always answer from cache (works offline), refresh in the background.
-// Bump CACHE when shipping changes so old files are dropped.
-const CACHE = 'macarons-v2';
+// Versioned, cache-first shell. Every release bumps CACHE (and VERSION in app.js), which makes this
+// file byte-different so the browser installs a new worker that downloads ALL files fresh (bypassing
+// the HTTP cache) into a new cache, then takes over. Old and new files are never mixed.
+const CACHE = 'macarons-v4';
 const SHELL = [
   './',
   'index.html',
@@ -14,7 +15,11 @@ const SHELL = [
 ];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  e.waitUntil(
+    caches.open(CACHE)
+      .then(c => c.addAll(SHELL.map(url => new Request(url, { cache: 'reload' }))))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', e => {
@@ -29,16 +34,14 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   e.respondWith(
     caches.open(CACHE).then(async cache => {
-      const cached = await cache.match(e.request, { ignoreSearch: true });
-      const network = fetch(e.request)
-        .then(res => {
-          if (res && res.ok && new URL(e.request.url).origin === location.origin) {
-            cache.put(e.request, res.clone());
-          }
-          return res;
-        })
-        .catch(() => cached || (e.request.mode === 'navigate' ? cache.match('index.html') : undefined));
-      return cached || network;
+      const hit = await cache.match(e.request, { ignoreSearch: true });
+      if (hit) return hit;
+      try {
+        return await fetch(e.request);
+      } catch (err) {
+        if (e.request.mode === 'navigate') return cache.match('index.html');
+        throw err;
+      }
     })
   );
 });

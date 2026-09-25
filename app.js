@@ -6,6 +6,7 @@
   const SETTINGS_KEY = 'macarons.settings.v1';
   const MAX_PER_FLAVOR = 99;
   const METHODS = { cash: 'Cash', venmo: 'Venmo' };
+  const VERSION = 4; // keep in step with CACHE in sw.js
 
   const FLAVORS = [
     { key: 'vanilla',   name: 'Vanilla',   fr: 'Vanille',   color: '#F1DDA8', cream: '#FFFDF5' },
@@ -197,7 +198,8 @@
         <h3>Reset everything</h3>
         <p>Deletes every sale and your saved Venmo username from this phone. This can&rsquo;t be undone.</p>
         <button class="reset-btn" data-act="ask-reset">Reset&hellip;</button>
-      </div>`;
+      </div>
+      <p class="version">Les Macarons &middot; version ${VERSION}</p>`;
   }
 
   function renderAll() {
@@ -468,7 +470,27 @@
   if (navigator.storage && navigator.storage.persist) {
     navigator.storage.persist().catch(() => {});
   }
+  // Updates: a new service worker installs in the background and takes over. Reload into it as soon as
+  // nothing is in progress (empty cart, no sheet open) so a sale is never interrupted.
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    const hadController = !!navigator.serviceWorker.controller;
+    let updateReady = false;
+    let reg = null;
+
+    navigator.serviceWorker.register('sw.js').then(r => { reg = r; }).catch(() => {});
+
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (hadController) updateReady = true; // first-ever install also fires this; no reload needed then
+    });
+
+    const reloadIfIdle = () => {
+      if (updateReady && !countOf(cart) && document.getElementById('sheet').hidden) location.reload();
+    };
+    setInterval(reloadIfIdle, 3000);
+
+    // iOS keeps the app alive in the background; check for a new version whenever it comes back
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && reg) reg.update().catch(() => {});
+    });
   }
 })();
