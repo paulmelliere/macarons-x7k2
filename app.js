@@ -3,7 +3,9 @@
 
   const PRICE = 2;
   const KEY = 'macarons.sales.v1';
+  const SETTINGS_KEY = 'macarons.settings.v1';
   const MAX_PER_FLAVOR = 99;
+  const METHODS = { cash: 'Cash', venmo: 'Venmo' };
 
   const FLAVORS = [
     { key: 'vanilla',   name: 'Vanilla',   fr: 'Vanille',   color: '#F1DDA8', cream: '#FFFDF5' },
@@ -17,6 +19,7 @@
   // ---------- state ----------
   let storageOk = true;
   let sales = load();
+  let settings = loadSettings();
   let cart = emptyCart();
   let tab = 'sell';
   let toastTimer = null;
@@ -47,6 +50,20 @@
     document.getElementById('storage-warning').hidden = storageOk;
   }
 
+  // The Venmo handle lives only in this device's storage, never in the (public) source.
+  function loadSettings() {
+    try {
+      const s = JSON.parse(localStorage.getItem(SETTINGS_KEY));
+      return s && typeof s === 'object' ? s : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function saveSettings() {
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { /* ignore */ }
+  }
+
   // ---------- derived values ----------
   const money = n => '$' + (Number.isInteger(n) ? n : n.toFixed(2));
   const countOf = items => FLAVORS.reduce((s, f) => s + (items[f.key] || 0), 0);
@@ -58,7 +75,10 @@
       for (const f of FLAVORS) byFlavor[f.key] += s.items[f.key] || 0;
     }
     const qty = FLAVORS.reduce((n, f) => n + byFlavor[f.key], 0);
-    return { byFlavor, qty, dollars: qty * PRICE };
+    // sales saved without a method (or with an unknown one) count as cash
+    const byMethod = { cash: 0, venmo: 0 };
+    for (const s of sales) byMethod[s.method === 'venmo' ? 'venmo' : 'cash'] += countOf(s.items) * PRICE;
+    return { byFlavor, byMethod, qty, dollars: qty * PRICE };
   }
 
   // ---------- macaron art ----------
@@ -103,7 +123,10 @@
           <span class="count">${n ? plural(n, 'macaron') : 'Tap + to add macarons'}</span>
           <span class="total">${money(dollars)}</span>
         </div>
-        <button class="btn-primary" data-act="complete" ${n ? '' : 'disabled'}>Complete Sale</button>
+        <div class="pay-row">
+          <button class="btn-primary cash" data-act="pay-cash" ${n ? '' : 'disabled'}>Cash${n ? ' ' + money(dollars) : ''}</button>
+          <button class="btn-primary venmo" data-act="pay-venmo" ${n ? '' : 'disabled'}>Venmo${n ? ' ' + money(dollars) : ''}</button>
+        </div>
         <div class="link-row">
           <button class="link-btn" data-act="undo-last" ${last ? '' : 'disabled'}>${undoLabel}</button>
           <button class="link-btn" data-act="clear-cart" ${n ? '' : 'disabled'}>Clear</button>
@@ -129,6 +152,10 @@
         <div class="money">${money(t.dollars)}</div>
         <div class="sub">${plural(t.qty, 'macaron')} &middot; ${plural(sales.length, 'sale')}</div>
       </div>
+      <div class="methods">
+        <div class="mtile cash"><small>Cash</small><b>${money(t.byMethod.cash)}</b></div>
+        <div class="mtile venmo"><small>Venmo</small><b>${money(t.byMethod.venmo)}</b></div>
+      </div>
       <div class="section-title">By flavor</div>
       ${rows}`;
   }
@@ -148,7 +175,7 @@
         `<span class="chip" style="--c:${f.color}"><i></i>${s.items[f.key]} &times; ${f.name}</span>`).join('');
       const time = new Date(s.ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
       return `<div class="hrow">
-        <div class="time">${time}<span>${plural(n, 'macaron')}</span></div>
+        <div class="time">${time}<span>${plural(n, 'macaron')}</span> <em class="badge ${s.method === 'venmo' ? 'venmo' : 'cash'}">${s.method === 'venmo' ? METHODS.venmo : METHODS.cash}</em></div>
         <div class="amt">${money(n * PRICE)}</div>
         <div class="chips">${chips}</div>
         <button class="del" data-act="ask-del" data-id="${s.id}">Remove</button>
@@ -177,11 +204,12 @@
   }
 
   // ---------- actions ----------
-  function completeSale() {
+  function completeSale(method) {
     if (!countOf(cart)) return;
     const sale = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       ts: Date.now(),
+      method,
       items: { ...cart },
     };
     sales.push(sale);
@@ -190,7 +218,7 @@
     cart = emptyCart();
     renderAll();
     confetti(sale);
-    toast(`Sale recorded &middot; ${plural(n, 'macaron')} &middot; ${money(n * PRICE)}`, sale.id);
+    toast(`Sale recorded &middot; ${plural(n, 'macaron')} &middot; ${money(n * PRICE)} &middot; ${METHODS[method]}`, sale.id);
   }
 
   function removeSale(id) {
@@ -236,6 +264,61 @@
     document.getElementById('sheet').hidden = true;
   }
 
+  // Letters, digits, - and _ only; also makes the handle safe to drop into HTML and URLs.
+  const cleanHandle = s => String(s || '').trim().replace(/^@/, '').replace(/[^A-Za-z0-9_-]/g, '');
+
+  function venmoLink(dollars) {
+    const q = `txn=pay&audience=private&amount=${dollars}&note=${encodeURIComponent('Macarons \u{1F36A}')}`;
+    return `https://venmo.com/${encodeURIComponent(settings.venmo)}?${q}`;
+  }
+
+  function qrSvg(text) {
+    try {
+      const qr = qrcode(0, 'M');
+      qr.addData(text);
+      qr.make();
+      return qr.createSvgTag({ cellSize: 4, margin: 16, scalable: true });
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function askVenmoHandle() {
+    const sheet = document.getElementById('sheet');
+    sheet.innerHTML = `<form class="panel" data-form="venmo-setup" autocomplete="off">
+      <h2>Your Venmo username</h2>
+      <p>Enter it once. It&rsquo;s saved only on this phone and used to make your QR code.</p>
+      <div class="handle"><span>@</span><input name="handle" value="${settings.venmo || ''}" placeholder="username" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="done"></div>
+      <div class="actions">
+        <button class="ok" type="submit">Save</button>
+        <button class="keep" type="button" data-act="close-sheet">Cancel</button>
+      </div>
+    </form>`;
+    sheet.hidden = false;
+    sheet.querySelector('input').focus();
+  }
+
+  function showVenmo() {
+    const n = countOf(cart);
+    if (!n) return;
+    if (!settings.venmo) { askVenmoHandle(); return; }
+    const dollars = n * PRICE;
+    const svg = qrSvg(venmoLink(dollars));
+    const sheet = document.getElementById('sheet');
+    sheet.innerHTML = `<div class="panel venmo" role="dialog" aria-modal="true" aria-label="Pay with Venmo">
+      <div class="due-label">Pay with Venmo</div>
+      <div class="due">${money(dollars)}</div>
+      <div class="qr">${svg || '<p>Couldn&rsquo;t draw the QR code.</p>'}</div>
+      <p class="who">@${settings.venmo} &middot; scan with the camera</p>
+      <div class="actions">
+        <button class="ok" data-act="venmo-paid">Payment received</button>
+        <button class="keep" data-act="close-sheet">Cancel</button>
+      </div>
+      <button class="link-btn" data-act="edit-venmo">Change Venmo username</button>
+    </div>`;
+    sheet.hidden = false;
+  }
+
   function confetti(sale) {
     const layer = document.getElementById('confetti');
     const used = FLAVORS.filter(f => sale.items[f.key]);
@@ -275,8 +358,18 @@
         cart = emptyCart();
         renderSell();
         break;
-      case 'complete':
-        completeSale();
+      case 'pay-cash':
+        completeSale('cash');
+        break;
+      case 'pay-venmo':
+        showVenmo();
+        break;
+      case 'venmo-paid':
+        closeSheet();
+        completeSale('venmo');
+        break;
+      case 'edit-venmo':
+        askVenmoHandle();
         break;
       case 'undo-last':
         if (sales.length) removeSale(sales[sales.length - 1].id);
@@ -299,7 +392,17 @@
     }
   });
 
-  // tapping the dimmed backdrop dismisses the confirm sheet without deleting
+  document.getElementById('sheet').addEventListener('submit', e => {
+    e.preventDefault();
+    if (e.target.dataset.form !== 'venmo-setup') return;
+    const handle = cleanHandle(e.target.elements.handle.value);
+    if (!handle) { e.target.elements.handle.focus(); return; }
+    settings.venmo = handle;
+    saveSettings();
+    showVenmo();
+  });
+
+  // tapping the dimmed backdrop dismisses the sheet without recording or deleting anything
   document.getElementById('sheet').addEventListener('click', e => {
     if (e.target.id === 'sheet') closeSheet();
   });

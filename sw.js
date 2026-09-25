@@ -1,11 +1,12 @@
 // Stale-while-revalidate: always answer from cache (works offline), refresh in the background.
 // Bump CACHE when shipping changes so old files are dropped.
-const CACHE = 'macarons-v1';
+const CACHE = 'macarons-v2';
 const SHELL = [
   './',
   'index.html',
   'styles.css',
   'app.js',
+  'vendor/qrcode.js',
   'manifest.webmanifest',
   'icons/apple-touch-icon.png',
   'icons/icon-192.png',
