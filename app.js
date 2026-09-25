@@ -184,15 +184,32 @@
     el.innerHTML = `<div class="section-title">Today&rsquo;s sales</div>${rows}`;
   }
 
+  function renderSettings(notice) {
+    const t = totals();
+    document.getElementById('view-settings').innerHTML = `
+      <div class="section-title">Settings</div>
+      ${notice ? `<div class="notice">${notice}</div>` : ''}
+      <div class="info-card">
+        <div><small>Sales recorded</small><b>${plural(sales.length, 'sale')} &middot; ${money(t.dollars)}</b></div>
+        <div><small>Venmo username</small><b>${settings.venmo ? '@' + settings.venmo : 'Not set'}</b></div>
+      </div>
+      <div class="danger-zone">
+        <h3>Reset everything</h3>
+        <p>Deletes every sale and your saved Venmo username from this phone. This can&rsquo;t be undone.</p>
+        <button class="reset-btn" data-act="ask-reset">Reset&hellip;</button>
+      </div>`;
+  }
+
   function renderAll() {
     renderSell();
     renderTotals();
     renderHistory();
+    renderSettings();
   }
 
   function showTab(name) {
     tab = name;
-    for (const t of ['sell', 'totals', 'history']) {
+    for (const t of ['sell', 'totals', 'history', 'settings']) {
       document.getElementById('view-' + t).hidden = t !== name;
     }
     document.querySelectorAll('.tab').forEach(b => {
@@ -200,6 +217,7 @@
       b.classList.toggle('active', on);
       if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
     });
+    if (name === 'settings') renderSettings();
     document.querySelector('main').scrollTop = 0;
   }
 
@@ -262,6 +280,34 @@
 
   function closeSheet() {
     document.getElementById('sheet').hidden = true;
+  }
+
+  function askReset() {
+    const t = totals();
+    const sheet = document.getElementById('sheet');
+    sheet.innerHTML = `<div class="panel" role="alertdialog" aria-modal="true" aria-label="Reset everything">
+      <h2>Reset everything?</h2>
+      <p>This permanently deletes <b>${plural(sales.length, 'sale')}</b> (${money(t.dollars)})${settings.venmo ? ` and your Venmo username <b>@${settings.venmo}</b>` : ''} from this phone. It can&rsquo;t be undone.</p>
+      <div class="actions">
+        <button class="danger" data-act="confirm-reset">Yes, reset everything</button>
+        <button class="keep" data-act="close-sheet">Keep my data</button>
+      </div>
+    </div>`;
+    sheet.hidden = false;
+  }
+
+  function resetAll() {
+    try {
+      localStorage.removeItem(KEY);
+      localStorage.removeItem(SETTINGS_KEY);
+    } catch (e) { /* storage unavailable: in-memory state is still cleared below */ }
+    sales = [];
+    settings = {};
+    cart = emptyCart();
+    hideToast();
+    closeSheet();
+    renderAll();
+    renderSettings('Everything was reset. Sales and Venmo username are cleared.');
   }
 
   // Letters, digits, - and _ only; also makes the handle safe to drop into HTML and URLs.
@@ -381,6 +427,12 @@
         break;
       case 'ask-del':
         askDelete(id);
+        break;
+      case 'ask-reset':
+        askReset();
+        break;
+      case 'confirm-reset':
+        resetAll();
         break;
       case 'confirm-del':
         removeSale(id);

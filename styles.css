@@ -292,6 +292,44 @@ main {
 }
 .hrow .del:active { background: #FDECEA; }
 
+/* ---------- settings ---------- */
+.notice {
+  background: #E6F4EA;
+  color: #1F6A40;
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+.info-card {
+  background: var(--paper);
+  border-radius: 16px;
+  padding: 6px 16px;
+  margin-bottom: 18px;
+}
+.info-card > div { display: flex; justify-content: space-between; align-items: baseline; padding: 12px 0; }
+.info-card > div + div { border-top: 1px solid var(--line); }
+.info-card small { color: var(--muted); font-size: 13px; letter-spacing: 1px; text-transform: uppercase; }
+.info-card b { font-family: var(--serif); font-size: 18px; }
+.danger-zone {
+  border: 2px dashed var(--rouge);
+  border-radius: 18px;
+  padding: 16px;
+  margin-top: 40px;
+}
+.danger-zone h3 { margin: 0 0 4px; font-family: var(--serif); color: var(--rouge); font-size: 20px; }
+.danger-zone p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
+.reset-btn {
+  border: 2px solid var(--rouge);
+  background: none;
+  color: var(--rouge);
+  border-radius: 14px;
+  padding: 12px 22px;
+  font-weight: 700;
+  font-size: 16px;
+}
+.reset-btn:active { background: #FDECEA; }
+
 /* ---------- tabs ---------- */
 .tabs {
   display: flex;
