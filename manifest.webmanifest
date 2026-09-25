@@ -1,6 +1,6 @@
 {
-  "name": "Les Macarons",
-  "short_name": "Macarons",
+  "name": "Patisserie Elise",
+  "short_name": "Elise",
   "description": "Macaron sales tracker for the vendor fair",
   "start_url": "./",
   "scope": "./",

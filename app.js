@@ -6,7 +6,7 @@
   const SETTINGS_KEY = 'macarons.settings.v1';
   const MAX_PER_FLAVOR = 99;
   const METHODS = { cash: 'Cash', venmo: 'Venmo' };
-  const VERSION = 4; // keep in step with CACHE in sw.js
+  const VERSION = 5; // keep in step with CACHE in sw.js
 
   const FLAVORS = [
     { key: 'vanilla',   name: 'Vanilla',   fr: 'Vanille',   color: '#F1DDA8', cream: '#FFFDF5' },
@@ -199,7 +199,7 @@
         <p>Deletes every sale and your saved Venmo username from this phone. This can&rsquo;t be undone.</p>
         <button class="reset-btn" data-act="ask-reset">Reset&hellip;</button>
       </div>
-      <p class="version">Les Macarons &middot; version ${VERSION}</p>`;
+      <p class="version">Patisserie Elise &middot; version ${VERSION}</p>`;
   }
 
   function renderAll() {
