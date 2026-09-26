@@ -1,7 +1,7 @@
 // Versioned, cache-first shell. Every release bumps CACHE (and VERSION in app.js), which makes this
 // file byte-different so the browser installs a new worker that downloads ALL files fresh (bypassing
 // the HTTP cache) into a new cache, then takes over. Old and new files are never mixed.
-const CACHE = 'macarons-v5';
+const CACHE = 'macarons-v6';
 const SHELL = [
   './',
   'index.html',

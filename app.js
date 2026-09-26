@@ -6,7 +6,7 @@
   const SETTINGS_KEY = 'macarons.settings.v1';
   const MAX_PER_FLAVOR = 99;
   const METHODS = { cash: 'Cash', venmo: 'Venmo' };
-  const VERSION = 5; // keep in step with CACHE in sw.js
+  const VERSION = 6; // keep in step with CACHE in sw.js
 
   const FLAVORS = [
     { key: 'vanilla',   name: 'Vanilla',   fr: 'Vanille',   color: '#F1DDA8', cream: '#FFFDF5' },
@@ -16,6 +16,10 @@
     { key: 'caramel',   name: 'Caramel',   fr: 'Caramel',   color: '#C98A4B', cream: '#F2D0A0' },
   ];
   const BY_KEY = Object.fromEntries(FLAVORS.map(f => [f.key, f]));
+  const ID_RE = /^[a-z0-9]{1,32}$/; // completeSale makes ids from base-36 digits
+
+  // Letters, digits, - and _ only (Venmo allows at most 30); also makes the handle safe to drop into HTML and URLs.
+  const cleanHandle = s => String(s || '').trim().replace(/^@/, '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 30);
 
   // ---------- state ----------
   let storageOk = true;
@@ -29,12 +33,25 @@
     return Object.fromEntries(FLAVORS.map(f => [f.key, 0]));
   }
 
+  // Stored data is rendered as HTML, so rebuild each sale from known fields with safe values.
+  function cleanSale(s) {
+    if (!s || typeof s !== 'object') return null;
+    if (typeof s.id !== 'string' || !ID_RE.test(s.id)) return null;
+    if (!Number.isFinite(s.ts)) return null;
+    const items = {};
+    for (const f of FLAVORS) {
+      const n = s.items && s.items[f.key];
+      items[f.key] = Number.isInteger(n) && n >= 0 && n <= MAX_PER_FLAVOR ? n : 0;
+    }
+    return { id: s.id, ts: s.ts, method: s.method === 'venmo' ? 'venmo' : 'cash', items };
+  }
+
   function load() {
     try {
       const raw = localStorage.getItem(KEY);
       if (!raw) return [];
       const data = JSON.parse(raw);
-      return Array.isArray(data) ? data : [];
+      return Array.isArray(data) ? data.map(cleanSale).filter(Boolean) : [];
     } catch (e) {
       storageOk = false;
       return [];
@@ -55,7 +72,8 @@
   function loadSettings() {
     try {
       const s = JSON.parse(localStorage.getItem(SETTINGS_KEY));
-      return s && typeof s === 'object' ? s : {};
+      const venmo = s && typeof s === 'object' ? cleanHandle(s.venmo) : '';
+      return venmo ? { venmo } : {};
     } catch (e) {
       return {};
     }
@@ -311,9 +329,6 @@
     renderAll();
     renderSettings('Everything was reset. Sales and Venmo username are cleared.');
   }
-
-  // Letters, digits, - and _ only; also makes the handle safe to drop into HTML and URLs.
-  const cleanHandle = s => String(s || '').trim().replace(/^@/, '').replace(/[^A-Za-z0-9_-]/g, '');
 
   function venmoLink(dollars) {
     const q = `txn=pay&audience=private&amount=${dollars}&note=${encodeURIComponent('Macarons \u{1F36A}')}`;
